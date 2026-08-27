@@ -8,6 +8,8 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public final class PluginConfig {
 
+    public enum RollbackPhysicsMode { SETTLE, IMMEDIATE }
+
     private int historyTicks;
     private boolean trackBlocks;
     private boolean trackBlockEntities;
@@ -17,6 +19,7 @@ public final class PluginConfig {
     private int maxCheckpoints;
     private int maxBlockChangesPerTick;
     private boolean debugLogging;
+    private RollbackPhysicsMode rollbackPhysicsMode;
 
     private PluginConfig() {
     }
@@ -40,6 +43,17 @@ public final class PluginConfig {
         maxCheckpoints = Math.max(1, c.getInt("max-checkpoints", 10));
         maxBlockChangesPerTick = Math.max(100, c.getInt("max-block-changes-per-tick", 20000));
         debugLogging = c.getBoolean("debug-logging", false);
+
+        String modeRaw = c.getString("rollback-physics-mode", "settle");
+        if (modeRaw != null && modeRaw.equalsIgnoreCase("immediate")) {
+            rollbackPhysicsMode = RollbackPhysicsMode.IMMEDIATE;
+        } else {
+            if (modeRaw != null && !modeRaw.equalsIgnoreCase("settle")) {
+                plugin.getLogger().warning("rollback-physics-mode invalide ('" + modeRaw
+                        + "'), valeurs acceptees: settle, immediate. Utilisation de 'settle'.");
+            }
+            rollbackPhysicsMode = RollbackPhysicsMode.SETTLE;
+        }
     }
 
     public int historyTicks() {
@@ -77,4 +91,9 @@ public final class PluginConfig {
     public boolean debugLogging() {
         return debugLogging;
     }
+
+    public RollbackPhysicsMode rollbackPhysicsMode() {
+        return rollbackPhysicsMode;
+    }
 }
+

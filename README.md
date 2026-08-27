@@ -11,6 +11,7 @@ completes du monde.
 
 ## Changelog recent
 
+- **Version 1.0.1.**
 - **Numerotation des ticks alignee sur vanilla.** Le plugin utilise
   desormais directement `ServerTickStartEvent#getTickNumber()` (le vrai
   compteur de tick du serveur, celui que `/tick query` affiche) au lieu
@@ -18,14 +19,22 @@ completes du monde.
   driver du compteur reel du serveur ; "N ticks en arriere" correspond
   maintenant toujours exactement a N vrais ticks Minecraft, sans facteur
   de conversion.
-- **Le monde ne reste plus fige apres un rollback.** La restauration des
-  blocs se fait toujours en deux passes (voir "Details du rollback"), mais
-  la seconde passe (reactivation physique) couvre maintenant aussi les 6
-  voisins directs de chaque bloc restaure, pas seulement les blocs
-  restaures eux-memes - necessaire pour que les comparators/repeaters
-  adjacents a un bloc restaure se re-evaluent correctement et que la
-  propagation redstone reprenne normalement, y compris pour un nouveau
-  `/tick step` juste apres un `/tickstepback`.
+- **Le monde ne reste plus fige apres un rollback (tentative 2).** La
+  restauration des blocs se fait toujours en deux passes (voir "Details
+  du rollback"), mais la seconde passe (reactivation physique) couvre
+  maintenant aussi les 6 voisins directs de chaque bloc restaure, pas
+  seulement les blocs restaures eux-memes - necessaire pour que les
+  comparators/repeaters adjacents a un bloc restaure se re-evaluent
+  correctement.
+- **Nouveau : `rollback-physics-mode` dans config.yml** (`settle` par
+  defaut, ou `immediate`). Si le blocage persiste malgre tout sur votre
+  installation apres ces deux correctifs - ce que je n'ai pas pu verifier
+  moi-meme faute d'acces a un serveur reel dans cet environnement -
+  essayez `immediate` et/ou activez `debug-logging: true` : la console
+  affichera l'etat de `ServerTickManager` avant/apres chaque rollback et
+  chaque restauration/reactivation de bloc, ce qui est le seul moyen
+  fiable de localiser precisement ce qui bloque sur votre version/
+  configuration specifique.
 - **Commande courte `/tsb`** enregistree comme commande racine a part
   entiere (pas seulement un alias) pour eviter tout probleme de
   resolution.
@@ -64,15 +73,97 @@ completes du monde.
 
 ## Compatibilite
 
+Version courante : **1.0.1**.
+
+### Icone
+
+`icon-placeholder.png` (512x512 px, PNG, fond transparent) est un
+espace reserve a la racine du depot — a remplacer par votre propre
+icone une fois prete, meme nom de fichier. 512x512 est la resolution
+carree communement utilisee par les plateformes de plugins (Hangar,
+Modrinth, SpigotMC) ; gardez le sujet principal dans la zone centrale
+au cas ou l'image serait recadree/arrondie a l'affichage. Ce fichier
+n'a aucun effet sur le fonctionnement du plugin lui-meme (Paper ne lit
+pas d'icone depuis `plugin.yml` ou le jar) : il ne sert qu'a l'usage
+externe (page de publication, README, etc.).
+
+### Ce qui est reellement livre dans ce depot
+
 - Cible officielle : **Paper 1.21.10** et **Purpur 1.21.10**, Java 21.
 - N'utilise que l'API publique Paper/Bukkit (`org.bukkit.*`,
   `com.destroystokyo.paper.*`, `io.papermc.paper.*`). Aucun acces NMS,
   aucune modification du jar Paper/Purpur.
-- Ne devrait pas fonctionner tel quel sur Fabric/Forge/Sponge (API
-  differente) ni sur une version de Paper significativement differente de
-  1.21.10 sans revalidation (les evenements `ServerTickStartEvent` /
-  `ServerTickEndEvent` et `ServerTickManager` sont stables depuis plusieurs
-  versions, mais toute API peut changer).
+
+### La demande "supporte toutes les versions 1.20.1 -> derniere, et tous
+### ces systemes : Paper, Purpur, Fabric, Forge, NeoForge, Mohist, Bukkit,
+### Spigot, Magma, Arclight, Banner"
+
+Plutot que de livrer une compatibilite "en apparence" qui ne marcherait
+pas reellement sur la moitie de cette liste (ce que le cahier des charges
+initial du projet interdit explicitement), voici l'etat des lieux honnete,
+plateforme par plateforme, avec la raison technique a chaque fois :
+
+| Systeme | `/tick freeze` + `/tick step` existe ? | Ce plugin peut y tourner ? |
+|---|---|---|
+| **Bukkit** (reference) | Non | **Impossible.** Bukkit ne definit que l'API commune ; `/tick freeze`/`step` et `ServerTickManager` sont des ajouts **Paper**, absents de Bukkit lui-meme. |
+| **Spigot** | Non | **Impossible**, meme raison : Spigot herite de Bukkit et n'implemente pas le systeme de tick freeze/step de Paper. Un plugin qui appelle `Bukkit.getServerTickManager()` plante au chargement sur Spigot (classe absente). |
+| **Paper** | Oui, depuis la 1.20.3 (voir plus bas) | **Oui** - c'est la plateforme cible de ce plugin. |
+| **Purpur** | Oui (fork de Paper, herite de son API) | **Oui** - deja dans le perimetre officiel. |
+| **Fabric** | Le jeu vanilla a bien `/tick freeze`/`step` depuis la 1.20.3, mais Fabric est un *mod loader*, pas un serveur de plugins Bukkit | **Non avec ce jar.** Un plugin Bukkit ne se charge pas sur un serveur Fabric : il n'y a pas de `JavaPlugin`, pas de `plugin.yml`, pas d'API `org.bukkit.*` du tout. Il faudrait un **mod Fabric independant** (Fabric API + Mixins dans la boucle de tick), c'est-a-dire un second projet avec une architecture totalement differente, pas une "version" du meme code. |
+| **Forge** | Idem vanilla 1.20.3+ | **Non avec ce jar**, meme raison que Fabric : Forge est un mod loader, pas un serveur Bukkit. Necessiterait un mod Forge (evenements Forge + Mixins/ASM), projet a part. |
+| **NeoForge** | Idem | **Non avec ce jar**, meme raison (fork de Forge, toujours pas Bukkit). |
+| **Mohist** | Hybride Forge+Bukkit non officiel | **Incertain, non teste.** Mohist rejoue une partie de l'API Bukkit par-dessus Forge ; si sa reimplementation expose fidelement `ServerTickManager`/`ServerTickStartEvent`/`ServerTickEndEvent` (ce qui n'est pas garanti - ce sont des ajouts Paper, pas Bukkit standard, et les hybrides ciblent surtout la compatibilite Bukkit/Spigot), le plugin pourrait charger, mais rien ne garantit que le comportement (detection de tick, evenements de bloc) soit fidele. Non maintenu officiellement par Mohist a ma connaissance a chaque version ; a tester avec `debug-logging: true` avant toute confiance. |
+| **Magma** | Hybride Forge+Bukkit non officiel (successeur spirituel de Mohist) | **Incertain, non teste**, meme reserve que Mohist. |
+| **Arclight** | Hybride Forge/Fabric/NeoForge+Bukkit non officiel | **Incertain, non teste**, meme reserve. Arclight vise plus large (plusieurs loaders) mais la question reste la meme : implemente-t-il specifiquement les classes Paper `ServerTickManager` et les evenements de tick Paper, ou seulement l'API Bukkit/Spigot de base ? Je n'ai pas pu le verifier ici. |
+| **Banner** | Hybride Fabric+Bukkit non officiel | **Incertain, non teste**, meme reserve. |
+
+**Pourquoi je n'ai pas fabrique 8 jars "compatibles" pour cette reponse :**
+ce depot n'a pas d'acces reseau aux depots Fabric/Forge/NeoForge/
+Mohist/Magma/Arclight/Banner ni a un serveur reel pour verifier quoi que
+ce soit, et surtout, Fabric/Forge/NeoForge ne sont **pas des variantes**
+de ce projet - ce sont des architectures totalement differentes (mods
+avec Mixins dans le moteur du jeu, pas des plugins Bukkit) qui exigeraient
+un code source distinct du debut a la fin, pas une recompilation. Fournir
+un jar qui prétend "supporter Fabric" sans que ça marche irait
+directement a l'encontre de la consigne initiale de ce projet ("pas de
+fausse implementation qui pretend marcher"). Pour les hybrides (Mohist,
+Magma, Arclight, Banner), la seule reponse honnete sans acces a un vrai
+serveur de ce type est "essayez le jar Paper existant, activez
+`debug-logging: true`, et verifiez au `/tsb status` si `ServerTickManager`
+repond correctement" - je ne peux pas certifier un resultat que je n'ai
+pas pu observer.
+
+### Pourquoi la 1.20.1 precisement est hors de portee, quel que soit
+### le plugin
+
+`/tick freeze`, `/tick step` et l'interface `ServerTickManager` ont ete
+ajoutes en **Minecraft 1.20.3** (pas avant). La 1.20.1 ne possede tout
+simplement pas cette fonctionnalite cote vanilla/serveur : il n'y a rien
+a "step back" puisqu'il n'existe pas de mecanisme de freeze/step a cette
+version, sur aucune implementation (Paper y compris). Ce n'est pas une
+limite de ce plugin en particulier, c'est une fonctionnalite absente du
+jeu lui-meme avant la 1.20.3.
+
+### Multi-version Paper/Purpur (1.20.3 -> derniere version)
+
+Sur le perimetre ou c'est reellement possible (Paper/Purpur et leurs forks
+qui suivent fidelement l'API Paper), la strategie recommandee pour une
+compatibilite large est de **compiler contre la premiere version d'API
+Paper qui expose `ServerTickManager`** (ligne 1.20.4, `paper-api:
+1.20.4-R0.1-SNAPSHOT` - a verifier/ajuster selon la disponibilite exacte
+de l'artefact au moment de la publication) plutot que contre la toute
+derniere. Paper maintient une compatibilite source/binaire descendante
+tres large sur l'API heritee de Bukkit et n'a pas de raison de casser une
+interface aussi utilisee que `ServerTickManager`, donc un jar compile
+ainsi devrait rester chargeable sur les versions plus recentes. Ce depot
+cible pour l'instant specifiquement 1.21.10 (voir `build.gradle.kts`) ;
+abaisser cette cible est une tache separee et **necessite un vrai test sur
+chaque version visee**, que je ne peux pas faire depuis cet environnement
+(pas d'acces reseau a `repo.papermc.io`, pas de serveur Minecraft
+disponible ici). Si vous voulez ce changement fait maintenant, dites-le
+et je modifie `build.gradle.kts`/`plugin.yml` en consequence - mais je ne
+pourrai que vous fournir le code, pas une confirmation testee que chaque
+version cible charge correctement.
 
 ## Commandes
 
@@ -125,6 +216,7 @@ auto-checkpoint: true
 max-checkpoints: 10
 max-block-changes-per-tick: 20000
 debug-logging: false
+rollback-physics-mode: settle   # settle (par defaut) ou immediate
 ```
 
 ## Fonctionnement

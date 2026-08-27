@@ -5,6 +5,7 @@ import dev.yolezz.tickstepback.tick.TickDelta;
 import dev.yolezz.tickstepback.tick.TickHistory;
 import dev.yolezz.tickstepback.tick.TickTracker;
 import dev.yolezz.tickstepback.tracking.BlockDelta;
+import dev.yolezz.tickstepback.config.PluginConfig;
 import dev.yolezz.tickstepback.tracking.EntityDelta;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -95,8 +96,10 @@ public final class RollbackManager {
         }
 
         tickTracker.setRollbackInProgress(true);
+        logTickManagerState("avant rollback");
         long lastUndoneTickId = lastTick + 1; // sentinel: nothing undone yet
         Set<Block> touchedBlocks = new LinkedHashSet<>();
+        boolean immediate = plugin.config().rollbackPhysicsMode() == PluginConfig.RollbackPhysicsMode.IMMEDIATE;
         try {
             while (history.availableTicks() > 0) {
                 TickDelta newest = history.peekNewest();
@@ -104,14 +107,17 @@ public final class RollbackManager {
                     break;
                 }
                 history.popNewest();
-                applyUndo(newest, result, touchedBlocks);
+                applyUndo(newest, result, touchedBlocks, immediate);
                 lastUndoneTickId = newest.tickId();
             }
-            // Second pass: now that every touched position holds its final
-            // restored data, re-notify neighbors so the world resumes normal
-            // propagation instead of sitting frozen in the restored state.
-            // See class javadoc for why this must be a separate pass.
-            settlePhysics(touchedBlocks, result);
+            if (!immediate) {
+                // Second pass (default "settle" mode): now that every touched
+                // position holds its final restored data, re-notify neighbors
+                // so the world resumes normal propagation instead of sitting
+                // frozen in the restored state. See class javadoc for why
+                // this must be a separate pass in this mode.
+                settlePhysics(touchedBlocks, result);
+            }
         } catch (Exception ex) {
             result.status(RollbackResult.Status.ERROR);
             result.addMessage("Erreur pendant le rollback: " + ex + " - l'etat du monde peut etre partiellement restaure. "
@@ -120,6 +126,7 @@ public final class RollbackManager {
             ex.printStackTrace();
         } finally {
             tickTracker.setRollbackInProgress(false);
+            logTickManagerState("apres rollback");
         }
 
         long achieved = lastUndoneTickId <= lastTick ? (lastTick - lastUndoneTickId + 1) : 0;
@@ -140,7 +147,7 @@ public final class RollbackManager {
         return result;
     }
 
-    private void applyUndo(TickDelta delta, RollbackResult result, Set<Block> touchedBlocks) {
+    private void applyUndo(TickDelta delta, RollbackResult result, Set<Block> touchedBlocks, boolean immediatePhysics) {
         for (BlockDelta bd : delta.blockChanges()) {
             try {
                 World world = Bukkit.getWorld(bd.worldName());
@@ -150,16 +157,23 @@ public final class RollbackManager {
                 }
                 Block block = world.getBlockAt(bd.x(), bd.y(), bd.z());
                 // force=true: apply regardless of the block currently present.
-                // applyPhysics=false: do NOT notify neighbors yet - the rest of
-                // this tick's (and other pending ticks') positions may still be
-                // holding pre-rollback data at this point, so notifying now
-                // could trigger a cascade based on an inconsistent world. The
-                // settle pass after the whole rollback re-notifies properly.
-                bd.beforeState().update(true, false);
+                // applyPhysics: false in "settle" mode (default) - see class
+                // javadoc; true in "immediate" mode (rollback-physics-mode:
+                // immediate in config.yml), which notifies neighbors as soon
+                // as each block is restored instead of deferring to a
+                // separate pass. Offered as an alternative to help isolate a
+                // persistent "world stuck after rollback" report that the
+                // default settle pass alone did not resolve.
+                bd.beforeState().update(true, immediatePhysics);
                 touchedBlocks.add(block);
                 result.addBlockChangeApplied();
+                if (plugin.config().debugLogging()) {
+                    plugin.getLogger().info("[rollback] bloc restaure (" + bd.worldName() + " " + bd.x() + ","
+                            + bd.y() + "," + bd.z() + ") physics=" + immediatePhysics);
+                }
             } catch (Exception ex) {
                 result.addMessage("Echec restauration bloc (" + bd.x() + "," + bd.y() + "," + bd.z() + "): " + ex);
+                plugin.getLogger().warning("[rollback] echec restauration bloc (" + bd.x() + "," + bd.y() + "," + bd.z() + "): " + ex);
             }
         }
 
@@ -196,19 +210,49 @@ public final class RollbackManager {
         Set<Block> toSettle = new LinkedHashSet<>(touchedBlocks);
         for (Block block : touchedBlocks) {
             for (org.bukkit.block.BlockFace face : NEIGHBOR_FACES) {
-                toSettle.add(block.getRelative(face));
+                try {
+                    toSettle.add(block.getRelative(face));
+                } catch (Exception ex) {
+                    // Defensive only: getRelative() can misbehave at world
+                    // height bounds or on unloaded chunks in edge cases.
+                    // Never let a single neighbor lookup abort the whole
+                    // settle pass for every other block.
+                    plugin.getLogger().warning("[rollback] impossible de resoudre un voisin de ("
+                            + block.getX() + "," + block.getY() + "," + block.getZ() + ") face=" + face + ": " + ex);
+                }
             }
         }
+        int settled = 0;
         for (Block block : toSettle) {
             try {
                 // Re-fetch the state we just wrote (not the historical
                 // "before" snapshot) so we notify with the correct, final
                 // data rather than re-writing anything.
                 block.getState().update(true, true);
+                settled++;
             } catch (Exception ex) {
                 result.addMessage("Echec de la passe de reactivation physique en (" + block.getX() + ","
                         + block.getY() + "," + block.getZ() + "): " + ex);
+                plugin.getLogger().warning("[rollback] echec settle physics (" + block.getX() + ","
+                        + block.getY() + "," + block.getZ() + "): " + ex);
             }
+        }
+        if (plugin.config().debugLogging()) {
+            plugin.getLogger().info("[rollback] passe de reactivation: " + settled + "/" + toSettle.size()
+                    + " position(s) re-notifiees (blocs touches + voisins directs).");
+        }
+    }
+
+    private void logTickManagerState(String when) {
+        if (!plugin.config().debugLogging()) {
+            return;
+        }
+        try {
+            var tm = Bukkit.getServerTickManager();
+            plugin.getLogger().info("[rollback] etat ServerTickManager " + when + ": isFrozen=" + tm.isFrozen()
+                    + " isStepping=" + tm.isStepping() + " isSprinting=" + tm.isSprinting());
+        } catch (Exception ex) {
+            plugin.getLogger().warning("[rollback] impossible de lire ServerTickManager " + when + ": " + ex);
         }
     }
 

@@ -94,7 +94,9 @@ public final class TickStepBackCommand implements CommandExecutor, TabCompleter 
         sender.sendMessage(Component.text("Ticks evinces depuis le demarrage (hors fenetre): " + history.totalEvictedTicks(), NamedTextColor.GRAY));
         var tm = org.bukkit.Bukkit.getServerTickManager();
         sender.sendMessage(Component.text("Serveur fige (/tick freeze): " + tm.isFrozen()
-                + (tm.isStepping() ? " (stepping)" : ""), NamedTextColor.GRAY));
+                + (tm.isStepping() ? " (stepping)" : "") + (tm.isSprinting() ? " (sprinting)" : ""), NamedTextColor.GRAY));
+        sender.sendMessage(Component.text("Mode de reactivation physique du rollback: "
+                + plugin.config().rollbackPhysicsMode(), NamedTextColor.GRAY));
     }
 
     private void handleClear(CommandSender sender) {

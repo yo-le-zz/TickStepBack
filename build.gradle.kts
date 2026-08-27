@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.yolezz"
-version = "0.1.0"
+version = "1.0.1"
 
 description = "Debug temporel (undo borne des ticks) pour Paper/Purpur 1.21.10, pense pour le debug de machines Redstone."
 
@@ -53,8 +53,8 @@ tasks.processResources {
 
 tasks.jar {
     archiveBaseName.set("TickStepBack")
-    // archiveVersion defaults to project.version ("0.1.0"), producing
-    // build/libs/TickStepBack-0.1.0.jar - exactly what plugins/ expects.
+    // archiveVersion defaults to project.version ("1.0.1"), producing
+    // build/libs/TickStepBack-1.0.1.jar - exactly what plugins/ expects.
 }
 
 // `assemble` (and therefore `build`) already depends on `jar` by default via

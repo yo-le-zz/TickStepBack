@@ -37,3 +37,29 @@ max-block-changes-per-tick: 20000
 
 # Journalisation detaillee (debug du plugin lui-meme, tres verbeux).
 debug-logging: false
+
+# Strategie de reactivation physique apres un rollback (voir README section
+# "Details du rollback"). Le probleme cible : sans notification de
+# voisinage apres restauration, le redstone reste visuellement correct
+# mais fige (plus rien ne se propage, meme apres un nouveau /tick step).
+#
+#   settle   (par defaut) - restaure tous les blocs en silence
+#            (applyPhysics=false), PUIS re-notifie chaque bloc restaure et
+#            ses 6 voisins directs (applyPhysics=true) une fois que tout
+#            est dans son etat final. Evite les cascades basees sur un
+#            monde partiellement restaure pendant l'application.
+#   immediate - notifie chaque bloc des sa propre restauration
+#            (applyPhysics=true directement, un seul passage). Plus proche
+#            de la structure vanilla mais peut, dans de rares cas, faire
+#            reagir un bloc restaure a un voisin pas encore restaure si
+#            l'ordre de traitement s'y prete. A essayer si "settle" ne
+#            resout pas un blocage persistant sur votre installation.
+#
+# Si vous rencontrez un blocage (redstone/pistons figes apres un
+# /tickstepback) qui persiste avec "settle", essayez "immediate", activez
+# debug-logging, et gardez la sortie console des deux tests: c'est ce qui
+# permet de diagnostiquer precisement le comportement reel de votre
+# version de serveur, que ce sandbox de developpement ne permet pas de
+# reproduire.
+rollback-physics-mode: settle
+
