@@ -1,0 +1,38 @@
+name: TickStepBack
+version: '${version}'
+main: dev.yolezz.tickstepback.TickStepBackPlugin
+api-version: '1.21'
+folia-supported: false
+author: yo_le_zz
+description: >
+  Debug temporel pour Minecraft Paper/Purpur : permet de revenir en arriere
+  sur les ticks executes depuis le dernier /tick step, pour le debug de
+  machines Redstone.
+website: https://github.com/yolezz/TickStepBack
+
+commands:
+  tickstepback:
+    description: Revenir en arriere sur les derniers ticks executes par /tick step.
+    usage: |
+      /<command> <ticks>          - revenir en arriere de <ticks> ticks
+      /<command> status           - afficher l'etat de l'historique
+      /<command> checkpoint       - forcer un checkpoint manuel
+      /<command> clear            - vider l'historique
+    aliases: [stepback]
+    permission: tickstepback.use
+  tsb:
+    description: Alias court de /tickstepback.
+    usage: |
+      /<command> <ticks>          - revenir en arriere de <ticks> ticks
+      /<command> status           - afficher l'etat de l'historique
+      /<command> checkpoint       - forcer un checkpoint manuel
+      /<command> clear            - vider l'historique
+    permission: tickstepback.use
+
+permissions:
+  tickstepback.use:
+    description: Autorise l'utilisation de /tickstepback (stepback, status).
+    default: op
+  tickstepback.admin:
+    description: Autorise les operations sensibles (clear, reload, checkpoint manuel).
+    default: op
