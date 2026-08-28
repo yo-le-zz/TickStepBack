@@ -1,11 +1,12 @@
 name: TickStepBack
 version: '${version}'
 main: dev.yolezz.tickstepback.TickStepBackPlugin
-# '1.21' covers the whole 1.21.x line (1.21.0 -> 1.21.11). See README
-# "Compatibilite" for why the 26.x line (Mojang's new year-based
-# versioning, successor to 1.21.x) is handled as a separate, clearly
-# labeled build rather than folded into this same api-version.
-api-version: '1.21'
+# EXPERIMENTAL / NON TESTE - voir root README "Compatibilite" et
+# paper-26/build.gradle.kts. '26.2' est la valeur attendue pour la ligne
+# de versionnage par annee (successeur de 1.21.x), a verifier contre les
+# valeurs reellement acceptees par votre build Paper 26.x au moment ou
+# vous testez.
+api-version: '26.2'
 # Folia (Paper's region-threaded fork) is NOT supported and this is left
 # false deliberately, not as an oversight: Folia has no single global
 # server tick / main thread the way this plugin assumes throughout
@@ -15,9 +16,9 @@ api-version: '1.21'
 folia-supported: false
 author: yo_le_zz
 description: >
-  Debug temporel pour Minecraft Paper/Purpur : permet de revenir en arriere
-  sur les ticks executes depuis le dernier /tick step, pour le debug de
-  machines Redstone.
+  [EXPERIMENTAL / NON TESTE, ligne 26.x] Debug temporel pour Minecraft
+  Paper/Purpur : permet de revenir en arriere sur les ticks executes
+  depuis le dernier /tick step, pour le debug de machines Redstone.
 website: https://github.com/yolezz/TickStepBack
 
 commands:

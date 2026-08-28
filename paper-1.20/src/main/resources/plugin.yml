@@ -1,11 +1,10 @@
 name: TickStepBack
 version: '${version}'
 main: dev.yolezz.tickstepback.TickStepBackPlugin
-# '1.21' covers the whole 1.21.x line (1.21.0 -> 1.21.11). See README
-# "Compatibilite" for why the 26.x line (Mojang's new year-based
-# versioning, successor to 1.21.x) is handled as a separate, clearly
-# labeled build rather than folded into this same api-version.
-api-version: '1.21'
+# '1.20' targets Paper/Purpur 1.20.4 specifically (the earliest publicly
+# published Paper API build after /tick freeze+step landed in 1.20.3 -
+# see paper-1.20/build.gradle.kts for the exact reasoning).
+api-version: '1.20'
 # Folia (Paper's region-threaded fork) is NOT supported and this is left
 # false deliberately, not as an oversight: Folia has no single global
 # server tick / main thread the way this plugin assumes throughout

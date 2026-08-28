@@ -1,8 +1,8 @@
 # TickStepBack
 
-Plugin Paper/Purpur 1.21.10 (Java 21) qui ajoute un "undo" borne au systeme
-vanilla `/tick freeze` + `/tick step`, pense pour le debug de machines
-Redstone.
+Plugin Paper/Purpur (ligne 1.21.x, Java 21) qui ajoute un "undo" borne au
+systeme vanilla `/tick freeze` + `/tick step`, pense pour le debug de
+machines Redstone.
 
 Ce n'est **pas** une machine a remonter le temps infinie : le plugin ne
 conserve qu'une fenetre glissante des N derniers ticks reellement executes
@@ -12,6 +12,12 @@ completes du monde.
 ## Changelog recent
 
 - **Version 1.0.1.**
+- **Restructuration en build multi-module.** Le depot est passe d'un seul
+  jar a trois modules Paper (`paper-1.20` Java 17, `paper-1.21` Java 21,
+  `paper-26` Java 25 experimental) partageant la meme source
+  (`common/src/main/java`), plus un module `mod-fabric/` separe et
+  independant (squelette initial). Voir "Compatibilite" pour le detail
+  complet, module par module.
 - **Numerotation des ticks alignee sur vanilla.** Le plugin utilise
   desormais directement `ServerTickStartEvent#getTickNumber()` (le vrai
   compteur de tick du serveur, celui que `/tick query` affiche) au lieu
@@ -55,21 +61,54 @@ completes du monde.
 
 ## Installation
 
-1. `./gradlew build` (necessite un acces reseau a Maven Central et au repo
-   PaperMC : `https://repo.papermc.io/repository/maven-public/`).
-2. Copier `build/libs/TickStepBack-<version>.jar` dans `plugins/` de votre
-   serveur **Paper 1.21.10** ou **Purpur 1.21.10** (Java 21).
-3. Demarrer le serveur, editer `plugins/TickStepBack/config.yml` si besoin,
-   puis `/reload confirm` ou redemarrer.
+Ce depot est maintenant un **build multi-module** : un module Gradle par
+generation d'API Paper supportee, plus un module Fabric separe et
+independant. Voir "Compatibilite" ci-dessous pour le detail de chaque
+module.
+
+1. `./gradlew clean build` a la racine construit **les trois modules
+   Paper** en une fois (necessite un acces reseau a Maven Central et au
+   repo PaperMC : `https://repo.papermc.io/repository/maven-public/`).
+   Pour n'en construire qu'un seul : `./gradlew :paper-1.21:build`.
+2. Recuperez le jar du module qui correspond a votre serveur :
+   - `paper-1.20/build/libs/TickStepBack-1.0.1-paper-1.20.jar` -
+     Paper/Purpur **1.20.4**, Java 17.
+   - `paper-1.21/build/libs/TickStepBack-1.0.1-paper-1.21.jar` -
+     Paper/Purpur **1.21.x** (1.21.0 a 1.21.11), Java 21.
+   - `paper-26/build/libs/TickStepBack-1.0.1-paper-26-EXPERIMENTAL.jar` -
+     Paper/Purpur **26.x**, Java 25, **experimental/non teste** (voir
+     "Compatibilite").
+   Copiez le jar choisi dans `plugins/` de votre serveur.
+3. Demarrez le serveur, editez `plugins/TickStepBack/config.yml` si
+   besoin, puis `/reload confirm` ou redemarrez.
+
+Pour le module Fabric (`mod-fabric/`), voir `mod-fabric/README.md` : il a
+son propre `settings.gradle` isole (`cd mod-fabric && ./gradlew build`)
+et n'est, en l'etat, qu'un squelette de detection de tick sans le moteur
+de rollback complet - a lire avant de s'y fier.
+
+### Depannage : "Invalid Java installation found... (provisioned toolchain)"
+
+Avertissement benin observe lors d'un premier essai reel : Gradle
+re-verifie un JDK qu'il vient de telecharger automatiquement (via le
+plugin Foojay, voir `settings.gradle.kts`) et le trouve invalide au
+premier passage, puis reessaie. Si le build continue et aboutit malgre
+l'avertissement, ignorez-le. S'il bloque de maniere repetee sur le meme
+JDK, supprimez le dossier concerne sous `~/.gradle/jdks/` et relancez
+`./gradlew clean build` pour forcer un nouveau telechargement.
 
 > Ce depot n'a pas pu etre compile dans l'environnement qui a genere ce
-> code (pas d'acces reseau a `repo.papermc.io` / Maven Central depuis ce
-> bac a sable). Le code a ete relu attentivement et verifie contre la
-> Javadoc Paper 1.21.x pour chaque API utilisee (voir commentaires dans le
-> code), mais vous devez compiler et tester sur un vrai serveur avant
-> production. `RingBuffer`, le coeur du ring buffer d'historique, est
-> independant de Bukkit et ses tests unitaires (`./gradlew test`) ont ete
-> executes avec succes dans cet environnement.
+> code (pas d'acces reseau a `repo.papermc.io` / Maven Central / 
+> `maven.fabricmc.net` depuis ce bac a sable). Le code a ete relu
+> attentivement et verifie contre la Javadoc Paper pour chaque API
+> utilisee (voir commentaires dans le code), mais vous devez compiler et
+> tester sur un vrai serveur avant production - en particulier les
+> modules `paper-1.20` et `paper-26`, et le module `mod-fabric` qui n'a,
+> a ma connaissance, jamais ete compile du tout. `RingBuffer`, le coeur du
+> ring buffer d'historique, est independant de Bukkit et ses tests
+> unitaires (`./gradlew test`) ont ete executes avec succes dans cet
+> environnement, identiquement dans les trois modules Paper puisqu'ils
+> partagent la meme source (`common/src/test/java`).
 
 ## Compatibilite
 
@@ -87,83 +126,139 @@ n'a aucun effet sur le fonctionnement du plugin lui-meme (Paper ne lit
 pas d'icone depuis `plugin.yml` ou le jar) : il ne sert qu'a l'usage
 externe (page de publication, README, etc.).
 
-### Ce qui est reellement livre dans ce depot
+### Important : il n'existe pas de "1.22" a "1.26"
 
-- Cible officielle : **Paper 1.21.10** et **Purpur 1.21.10**, Java 21.
-- N'utilise que l'API publique Paper/Bukkit (`org.bukkit.*`,
-  `com.destroystokyo.paper.*`, `io.papermc.paper.*`). Aucun acces NMS,
-  aucune modification du jar Paper/Purpur.
+Debut 2026, Mojang est passe a un versionnage par annee : apres la ligne
+**1.21.x** (dernier build connu : 1.21.11), la suite n'est **pas**
+1.22/1.23/.../1.26 mais **26.1** (mars 2026), **26.2** (version stable
+actuelle au moment de cette reponse), et **26.3** (en snapshot). Si vous
+avez vu "1.21.x" quelque part et que vous en avez deduit qu'on allait
+vers "1.26.x", c'est cette meme numerotation par annee qui a change le
+schema en cours de route - la demande de couvrir "jusqu'a 1.26.x" est
+donc traduite ici en "jusqu'a la derniere version disponible, quel que
+soit son nom" : 1.21.x, puis 26.1, 26.2, 26.3.
 
-### La demande "supporte toutes les versions 1.20.1 -> derniere, et tous
-### ces systemes : Paper, Purpur, Fabric, Forge, NeoForge, Mohist, Bukkit,
-### Spigot, Magma, Arclight, Banner"
+### Ce qui est couvert, module par module (1.0.1)
 
-Plutot que de livrer une compatibilite "en apparence" qui ne marcherait
-pas reellement sur la moitie de cette liste (ce que le cahier des charges
-initial du projet interdit explicitement), voici l'etat des lieux honnete,
-plateforme par plateforme, avec la raison technique a chaque fois :
+Structure du depot depuis cette version : `common/` (source Java partagee,
+pas un module Gradle en soi) + trois modules Paper + un module Fabric
+independant. Voir `common/README.md` pour le detail de la technique de
+partage de source.
 
-| Systeme | `/tick freeze` + `/tick step` existe ? | Ce plugin peut y tourner ? |
-|---|---|---|
-| **Bukkit** (reference) | Non | **Impossible.** Bukkit ne definit que l'API commune ; `/tick freeze`/`step` et `ServerTickManager` sont des ajouts **Paper**, absents de Bukkit lui-meme. |
-| **Spigot** | Non | **Impossible**, meme raison : Spigot herite de Bukkit et n'implemente pas le systeme de tick freeze/step de Paper. Un plugin qui appelle `Bukkit.getServerTickManager()` plante au chargement sur Spigot (classe absente). |
-| **Paper** | Oui, depuis la 1.20.3 (voir plus bas) | **Oui** - c'est la plateforme cible de ce plugin. |
-| **Purpur** | Oui (fork de Paper, herite de son API) | **Oui** - deja dans le perimetre officiel. |
-| **Fabric** | Le jeu vanilla a bien `/tick freeze`/`step` depuis la 1.20.3, mais Fabric est un *mod loader*, pas un serveur de plugins Bukkit | **Non avec ce jar.** Un plugin Bukkit ne se charge pas sur un serveur Fabric : il n'y a pas de `JavaPlugin`, pas de `plugin.yml`, pas d'API `org.bukkit.*` du tout. Il faudrait un **mod Fabric independant** (Fabric API + Mixins dans la boucle de tick), c'est-a-dire un second projet avec une architecture totalement differente, pas une "version" du meme code. |
-| **Forge** | Idem vanilla 1.20.3+ | **Non avec ce jar**, meme raison que Fabric : Forge est un mod loader, pas un serveur Bukkit. Necessiterait un mod Forge (evenements Forge + Mixins/ASM), projet a part. |
-| **NeoForge** | Idem | **Non avec ce jar**, meme raison (fork de Forge, toujours pas Bukkit). |
-| **Mohist** | Hybride Forge+Bukkit non officiel | **Incertain, non teste.** Mohist rejoue une partie de l'API Bukkit par-dessus Forge ; si sa reimplementation expose fidelement `ServerTickManager`/`ServerTickStartEvent`/`ServerTickEndEvent` (ce qui n'est pas garanti - ce sont des ajouts Paper, pas Bukkit standard, et les hybrides ciblent surtout la compatibilite Bukkit/Spigot), le plugin pourrait charger, mais rien ne garantit que le comportement (detection de tick, evenements de bloc) soit fidele. Non maintenu officiellement par Mohist a ma connaissance a chaque version ; a tester avec `debug-logging: true` avant toute confiance. |
-| **Magma** | Hybride Forge+Bukkit non officiel (successeur spirituel de Mohist) | **Incertain, non teste**, meme reserve que Mohist. |
-| **Arclight** | Hybride Forge/Fabric/NeoForge+Bukkit non officiel | **Incertain, non teste**, meme reserve. Arclight vise plus large (plusieurs loaders) mais la question reste la meme : implemente-t-il specifiquement les classes Paper `ServerTickManager` et les evenements de tick Paper, ou seulement l'API Bukkit/Spigot de base ? Je n'ai pas pu le verifier ici. |
-| **Banner** | Hybride Fabric+Bukkit non officiel | **Incertain, non teste**, meme reserve. |
+| Module | Cible | Java | Statut |
+|---|---|---|---|
+| `paper-1.20/` | Paper/Purpur **1.20.4** (premiere version publiee apres l'ajout de `/tick freeze`+`step` en 1.20.3) | 17 | Code identique aux autres modules Paper, compile contre `paper-api:1.20.4-R0.1-SNAPSHOT`. Non teste sur un vrai serveur 1.20.x depuis cet environnement. |
+| `paper-1.21/` | Paper/Purpur **1.21.x** (1.21.0 a 1.21.11) | 21 | Module le plus mature de ce depot (voir historique des corrections plus haut), compile contre `paper-api:1.21.4-R0.1-SNAPSHOT`. |
+| `paper-26/` | Paper/Purpur **26.x** (26.1+) | 25 | **Experimental.** Voir "Ce qui reste incertain" ci-dessous. |
+| `mod-fabric/` | Serveurs **Fabric** | 21 | **Squelette initial seulement** (detection d'etat tick-freeze + commande vide) - le moteur de rollback n'est pas porte. Voir `mod-fabric/README.md`. Jamais compile ici (pas d'acces reseau a `maven.fabricmc.net`). |
 
-**Pourquoi je n'ai pas fabrique 8 jars "compatibles" pour cette reponse :**
-ce depot n'a pas d'acces reseau aux depots Fabric/Forge/NeoForge/
-Mohist/Magma/Arclight/Banner ni a un serveur reel pour verifier quoi que
-ce soit, et surtout, Fabric/Forge/NeoForge ne sont **pas des variantes**
-de ce projet - ce sont des architectures totalement differentes (mods
-avec Mixins dans le moteur du jeu, pas des plugins Bukkit) qui exigeraient
-un code source distinct du debut a la fin, pas une recompilation. Fournir
-un jar qui prétend "supporter Fabric" sans que ça marche irait
-directement a l'encontre de la consigne initiale de ce projet ("pas de
-fausse implementation qui pretend marcher"). Pour les hybrides (Mohist,
-Magma, Arclight, Banner), la seule reponse honnete sans acces a un vrai
-serveur de ce type est "essayez le jar Paper existant, activez
-`debug-logging: true`, et verifiez au `/tsb status` si `ServerTickManager`
-repond correctement" - je ne peux pas certifier un resultat que je n'ai
-pas pu observer.
+Chaque module Paper utilise uniquement l'API publique Paper/Bukkit
+(`org.bukkit.*`, `com.destroystokyo.paper.*`, `io.papermc.paper.*`).
+Aucun acces NMS, aucune modification du jar Paper/Purpur, dans aucun des
+trois.
 
-### Pourquoi la 1.20.1 precisement est hors de portee, quel que soit
-### le plugin
+**Pourquoi trois jars distincts plutot qu'un seul "universel" :** un jar
+compile contre une generation d'API Paper reste chargeable sur les
+patches plus recents de la MEME ligne majeure (additive), mais pas de
+maniere fiable a travers un changement de ligne majeure (1.20.x -> 1.21.x
+-> 26.x), qui peut renommer/retirer des methodes. Chaque module compile
+donc `common/src/main/java` contre son propre `paper-api`, plutot que de
+faire une seule compilation et esperer qu'elle marche partout.
+
+### Ce qui reste incertain - a lire avant de deployer `paper-1.20` ou `paper-26`
+
+- **`paper-1.20` (Java 17, 1.20.4)** : le code est identique a
+  `paper-1.21` (meme source partagee), et rien dans ce code n'utilise une
+  fonctionnalite specifique a Java 21+, donc il devrait compiler et se
+  comporter pareil. "Devrait" : je n'ai ni acces reseau a
+  `repo.papermc.io` ni serveur 1.20.4 reel pour le confirmer depuis cet
+  environnement.
+- **`paper-26` (Java 25, 26.x) - la reserve la plus serieuse.** Raisons
+  concretes, pas une simple prudence de principe :
+  - **Java 25.** 26.1 est, d'apres la documentation Mojang, "la premiere
+    version a necessiter Java 25". Le module `paper-26` utilise donc son
+    propre toolchain Java 25, distinct des deux autres modules (Java 17
+    et 21) - jamais melange dans un seul jar.
+  - **Changements d'API confirmes en 26.x.** Paper documente un
+    changement de Registry API assez profond pour que des outils de test
+    comme MockBukkit n'aient, au moment ou j'ai pu verifier, pas encore
+    de version compatible avec Paper 26.x. Ce plugin n'utilise pas la
+    Registry API, donc il est possible qu'il soit epargne - mais
+    "possible" n'est pas "verifie".
+  - Un exemple reel trouve en cherchant : un plugin Bukkit existant
+    migrant vers Paper 26.1 a du changer sa cible d'API Paper, passer son
+    Java de 17 a 25, mettre a jour ses dependances Adventure, et
+    desactiver temporairement une partie de ses tests faute d'outillage
+    compatible. Ce n'est pas un simple bump de numero de version.
+  - **Artefact corrige suite a un premier essai de build reel.** Paper a
+    change son format de version d'artefact a partir de la ligne 26.x
+    (fini le suffixe `-R0.1-SNAPSHOT`) : `paper-26/build.gradle.kts`
+    utilise maintenant `paper-api:26.2.build.+` (resolution dynamique du
+    dernier build, format documente officiellement par PaperMC), corrige
+    apres qu'un premier essai avec l'ancien format ait echoue avec une
+    erreur "Could not find paper-api:26.2-R0.1-SNAPSHOT" lors d'un vrai
+    `./gradlew clean build`. Ce nom d'artefact est maintenant verifie
+    contre la documentation officielle, pas juste suppose - mais le
+    contenu de l'API elle-meme (methodes, classes) reste a confirmer par
+    un vrai build+test, ce que je n'ai toujours pas pu faire ici.
+  - **En clair : `paper-26` est fourni pour vous faire gagner du temps de
+    depart si vous voulez tester, pas comme une confirmation que ca
+    marche.** Le marquer "supporte" sans verification serait exactement
+    le genre de "ca marche en apparence" que ce projet interdit depuis le
+    debut - d'ou le suffixe `-EXPERIMENTAL` sur le nom du jar produit et
+    le bandeau dans sa description.
+- **`mod-fabric`** : squelette seulement, voir `mod-fabric/README.md`
+  pour le detail exact de ce qui manque (tout le moteur de rollback).
+
+**Folia n'est pas supporte** (`folia-supported: false`, deliberement,
+dans chacun des trois modules Paper). Ce n'est pas un simple oubli de
+compatibilite : Folia decoupe le monde en regions qui tiquent chacune sur
+leur propre thread, il n'y a plus de "tick serveur global" ni de thread
+principal unique. Toute l'architecture de ce plugin (`TickTracker`, le
+ring buffer d'historique, `RollbackManager`) part du principe qu'il
+existe UN SEUL flux de ticks a observer et annuler. Rendre ce plugin
+compatible Folia est un changement d'architecture (historique par
+region, rollback par region), pas un correctif.
+
+**Forge / NeoForge** : non commences. Comme Fabric, ce seraient des
+projets a architecture totalement differente (systeme de Mixins/
+evenements et outillage Gradle propres a chaque mod loader - ForgeGradle/
+NeoGradle au lieu de Fabric Loom). Dites-le si vous voulez que je les
+demarre selon le meme principe que `mod-fabric/` (squelette honnete,
+sans pretendre a une parite complete non verifiee).
+
+**Fabric : voir `mod-fabric/`** (squelette initial, non teste - voir
+`mod-fabric/README.md`).
+
+**Forge / NeoForge** : non commences. Comme Fabric, ce seraient des
+projets a architecture totalement differente (systeme de Mixins/
+evenements et outillage Gradle propres a chaque mod loader - ForgeGradle/
+NeoGradle au lieu de Fabric Loom). Dites-le si vous voulez que je les
+demarre selon le meme principe que `mod-fabric/` (squelette honnete,
+sans pretendre a une parite complete non verifiee).
+
+**Bukkit / Spigot : impossible, point.** `/tick freeze`/`step` et
+`ServerTickManager` sont des ajouts **Paper**, absents de Bukkit/Spigot
+eux-memes. Un plugin qui appelle `Bukkit.getServerTickManager()` plante
+au chargement sur Spigot pur (classe absente).
+
+**Hybrides non officiels (Mohist, Magma, Arclight, Banner) : incertain,
+non teste.** Ces projets rejouent une partie de l'API Bukkit par-dessus
+Forge/Fabric ; s'ils reimplementent fidelement `ServerTickManager` et les
+evenements de tick Paper (pas garanti - ce sont des ajouts Paper, pas
+Bukkit standard, et ces hybrides ciblent d'abord la compatibilite Bukkit/
+Spigot de base), un des jars `paper-*` pourrait charger, sans garantie de
+comportement correct. Aucun acces a ces environnements ici pour verifier
+: activez `debug-logging: true` et `/tsb status` pour juger par
+vous-meme si vous tentez l'experience.
+
+### Pourquoi la 1.20.1 reste hors de portee, quel que soit le plugin
 
 `/tick freeze`, `/tick step` et l'interface `ServerTickManager` ont ete
 ajoutes en **Minecraft 1.20.3** (pas avant). La 1.20.1 ne possede tout
 simplement pas cette fonctionnalite cote vanilla/serveur : il n'y a rien
 a "step back" puisqu'il n'existe pas de mecanisme de freeze/step a cette
-version, sur aucune implementation (Paper y compris). Ce n'est pas une
-limite de ce plugin en particulier, c'est une fonctionnalite absente du
-jeu lui-meme avant la 1.20.3.
-
-### Multi-version Paper/Purpur (1.20.3 -> derniere version)
-
-Sur le perimetre ou c'est reellement possible (Paper/Purpur et leurs forks
-qui suivent fidelement l'API Paper), la strategie recommandee pour une
-compatibilite large est de **compiler contre la premiere version d'API
-Paper qui expose `ServerTickManager`** (ligne 1.20.4, `paper-api:
-1.20.4-R0.1-SNAPSHOT` - a verifier/ajuster selon la disponibilite exacte
-de l'artefact au moment de la publication) plutot que contre la toute
-derniere. Paper maintient une compatibilite source/binaire descendante
-tres large sur l'API heritee de Bukkit et n'a pas de raison de casser une
-interface aussi utilisee que `ServerTickManager`, donc un jar compile
-ainsi devrait rester chargeable sur les versions plus recentes. Ce depot
-cible pour l'instant specifiquement 1.21.10 (voir `build.gradle.kts`) ;
-abaisser cette cible est une tache separee et **necessite un vrai test sur
-chaque version visee**, que je ne peux pas faire depuis cet environnement
-(pas d'acces reseau a `repo.papermc.io`, pas de serveur Minecraft
-disponible ici). Si vous voulez ce changement fait maintenant, dites-le
-et je modifie `build.gradle.kts`/`plugin.yml` en consequence - mais je ne
-pourrai que vous fournir le code, pas une confirmation testee que chaque
-version cible charge correctement.
+version, sur aucune implementation (Paper y compris).
 
 ## Commandes
 
@@ -417,7 +512,7 @@ explicitement comme partiel plutot que de pretendre avoir tout restaure.
   environnement de generation de code n'a pas d'acces reseau a un
   jar Paper/Purpur ni la possibilite de lancer un serveur Minecraft**, donc
   aucun test d'integration automatise n'a pu etre execute ici. Plan de
-  test manuel recommande sur un vrai serveur 1.21.10, a executer avant
+  test manuel recommande sur un vrai serveur 1.21.x, a executer avant
   toute utilisation en production :
 
   1. **Bloc simple** : `/tick freeze` -> poser stone -> `/tick step 1` ->

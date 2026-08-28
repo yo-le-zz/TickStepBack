@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "tickstepback",
+  "version": "${version}",
+  "name": "TickStepBack",
+  "description": "Debug temporel (undo borne des ticks) pour serveurs Fabric, pense pour le debug de machines Redstone. Squelette initial - voir mod-fabric/README.md pour l'etat d'avancement.",
+  "authors": ["yo_le_zz"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/tickstepback/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "dev.yolezz.tickstepback.fabric.TickStepBackFabric"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

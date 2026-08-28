@@ -1,0 +1,65 @@
+# TickStepBack - configuration
+#
+# Ce plugin ne conserve PAS une machine a remonter le temps infinie.
+# Il conserve uniquement une fenetre glissante (ring buffer) des N derniers
+# ticks "utiles" (ticks executes hors freeze, ou ticks de /tick step),
+# et permet de revenir en arriere a l'interieur de cette fenetre.
+
+# Nombre maximum de ticks conserves dans l'historique (ring buffer).
+# Plus cette valeur est grande, plus la memoire utilisee est importante.
+# Un tick "vide" (aucun changement detecte) ne coute presque rien.
+history-ticks: 200
+
+# Familles de changements a enregistrer. Desactiver une categorie reduit
+# l'usage memoire et CPU mais desactive le rollback correspondant.
+tracking:
+  blocks: true
+  block-entities: true    # inventaires de coffres/fours/tonneaux/etc.
+  entities: true           # spawn/despawn/position des entites non-joueur
+  redstone-power-only: false # si true, ignore les BlockRedstoneEvent (power-only)
+                              # et ne suit que les changements de BlockData reels
+
+# Checkpoint de securite : avant le PREMIER rollback d'une session de debug
+# (delimitee par un /tick freeze), le plugin sauvegarde l'etat "brut" de tous
+# les blocs et inventaires actuellement suivis dans l'historique, dans un
+# fichier JSON sous plugins/TickStepBack/checkpoints/. Ce n'est PAS une
+# sauvegarde complete du monde : c'est un filet de securite portant
+# uniquement sur les positions deja suivies par l'historique.
+auto-checkpoint: true
+
+# Nombre max de checkpoints conserves sur disque (rotation).
+max-checkpoints: 10
+
+# Limite dure sur le nombre de deltas de blocs stockes par tick, au dela de
+# laquelle le plugin log un avertissement (protection contre une machine qui
+# modifierait des dizaines de milliers de blocs en un seul /tick step).
+max-block-changes-per-tick: 20000
+
+# Journalisation detaillee (debug du plugin lui-meme, tres verbeux).
+debug-logging: false
+
+# Strategie de reactivation physique apres un rollback (voir README section
+# "Details du rollback"). Le probleme cible : sans notification de
+# voisinage apres restauration, le redstone reste visuellement correct
+# mais fige (plus rien ne se propage, meme apres un nouveau /tick step).
+#
+#   settle   (par defaut) - restaure tous les blocs en silence
+#            (applyPhysics=false), PUIS re-notifie chaque bloc restaure et
+#            ses 6 voisins directs (applyPhysics=true) une fois que tout
+#            est dans son etat final. Evite les cascades basees sur un
+#            monde partiellement restaure pendant l'application.
+#   immediate - notifie chaque bloc des sa propre restauration
+#            (applyPhysics=true directement, un seul passage). Plus proche
+#            de la structure vanilla mais peut, dans de rares cas, faire
+#            reagir un bloc restaure a un voisin pas encore restaure si
+#            l'ordre de traitement s'y prete. A essayer si "settle" ne
+#            resout pas un blocage persistant sur votre installation.
+#
+# Si vous rencontrez un blocage (redstone/pistons figes apres un
+# /tickstepback) qui persiste avec "settle", essayez "immediate", activez
+# debug-logging, et gardez la sortie console des deux tests: c'est ce qui
+# permet de diagnostiquer precisement le comportement reel de votre
+# version de serveur, que ce sandbox de developpement ne permet pas de
+# reproduire.
+rollback-physics-mode: settle
+

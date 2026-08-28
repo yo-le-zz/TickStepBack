@@ -1,61 +1,13 @@
-plugins {
-    java
+// Root build script. No java plugin applied here on purpose: this project
+// has no single-jar "build" anymore, it produces THREE separate jars, one
+// per supported Paper API generation - see README "Compatibilite" for why.
+// Build everything with:
+//     ./gradlew clean build
+// which builds paper-1.20, paper-1.21 and paper-26 as their own jars under
+// each module's own build/libs/, or target one specifically with e.g.
+//     ./gradlew :paper-1.21:build
+
+allprojects {
+    group = "dev.yolezz"
+    version = "1.0.1"
 }
-
-group = "dev.yolezz"
-version = "1.0.1"
-
-description = "Debug temporel (undo borne des ticks) pour Paper/Purpur 1.21.10, pense pour le debug de machines Redstone."
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-    }
-}
-
-repositories {
-    mavenCentral()
-    maven("https://repo.papermc.io/repository/maven-public/") {
-        name = "papermc"
-    }
-}
-
-dependencies {
-    // Paper API only - provided by the server at runtime, never shaded into
-    // our jar. We have no other runtime dependency, so no shadow/shading
-    // plugin is needed at all: the plain `jar` task produced by the `java`
-    // plugin is the whole build.
-    compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
-
-    // Pure-Java unit tests (RingBuffer) - no Bukkit server required to run these.
-    testImplementation(platform("org.junit:junit-bom:5.10.2"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-    options.release.set(21)
-}
-
-tasks.test {
-    useJUnitPlatform()
-}
-
-tasks.processResources {
-    // Substitutes ${version} in plugin.yml with the project version above.
-    val props = mapOf("version" to version)
-    inputs.properties(props)
-    filteringCharset = "UTF-8"
-    filesMatching("plugin.yml") {
-        expand(props)
-    }
-}
-
-tasks.jar {
-    archiveBaseName.set("TickStepBack")
-    // archiveVersion defaults to project.version ("1.0.1"), producing
-    // build/libs/TickStepBack-1.0.1.jar - exactly what plugins/ expects.
-}
-
-// `assemble` (and therefore `build`) already depends on `jar` by default via
-// the java plugin; no extra wiring is required.
